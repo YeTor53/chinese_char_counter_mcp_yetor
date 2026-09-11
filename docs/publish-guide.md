@@ -38,30 +38,64 @@ uv tool run --from dist/chinese_char_counter_mcp-0.1.0-py3-none-any.whl chinese-
 最后一条能把服务拉起来（无输出、等待 stdin）就说明入口没问题；再用任意 MCP 客户端连一下确认
 `list_tools` 返回三个工具即可。本项目 2026-09-11 已按此验证通过（uv 0.11.14，装 31 个依赖后成功握手）。
 
-## 第 2 步：发布到 PyPI
+## 第 2 步：发布到 PyPI（唯一不可跳过的步骤）
 
-包名：`chinese-char-counter-mcp`（发布前用 `curl -s https://pypi.org/pypi/chinese-char-counter-mcp/json`
-确认没被占用；被占用了就改 `pyproject.toml` 里的 `name`，并同步改 README 配置里的包名）。
+包名：`chinese-char-counter-mcp`。魔搭的部署检测会直接 `uvx chinese-char-counter-mcp@latest`，
+**包不在 PyPI 上，连接与检测必定失败**（报 anyio TaskGroup 的 ExceptionGroup）。
 
-本仓库自带 GitHub Actions（`.github/workflows/publish.yml`），推荐用 **Trusted Publishing**
-（免 API Token）：
+### 2.1 账号与令牌
 
-1. 在 PyPI 账号中 Add a pending publisher，填 GitHub 仓库、workflow 名 `publish.yml`、environment 名 `pypi`。
-2. 在 GitHub 仓库 Settings → Environments 建一个名为 `pypi` 的 environment。
-3. 打 tag 发 Release（或在 Actions 里手动触发 workflow）：
+1. 注册/登录 https://pypi.org （需邮箱验证）。
+2. 开启双因素认证（Account settings → Two-factor authentication，TOTP）。未开 2FA 无法创建令牌。
+3. 创建 API token：Account settings → API tokens → Add API token。
+   - 第一次必须选 scope = **Entire account**（项目还不存在，不能选项目级）。
+   - 令牌只在创建时显示一次，形如 `pypi-xxxxx`，复制保存好。
+   - 首次发布成功后，可再建一个 scope 限定到该项目的令牌用于日常发布。
 
-```bash
+### 2.2 上传
+
+本机 uv 已在 PATH 上且 TLS 可用，**优先用 `uv publish`**（无需额外装依赖；`twine` 未安装）：
+
+```powershell
+cd G:\MCP\chinese-char-counter-mcp
+uv publish --token pypi-你的令牌 dist/*
+```
+
+- 认证用户名由 uv 自动按 `__token__` 处理，不用手填。
+- 传完看到 `Uploading ...` 两次（wheel + sdist）即成功。
+- 想先确认文件与端点没问题：加 `--dry-run`（不发令牌也能跑）。
+- 备用方式（uv 不可用时）：`python -m pip install --upgrade twine` 后
+  `python -m twine upload -u __token__ -p pypi-你的令牌 dist/*`。
+
+### 2.3 验证
+
+1. 打开 https://pypi.org/project/chinese-char-counter-mcp/ 能看到 0.1.0。
+2. 本机拉起（魔搭检测做的事就是这一步）：
+
+```powershell
+uvx chinese-char-counter-mcp@latest
+```
+
+无输出、停在等待 stdin 状态即正确（Ctrl+C 退出）。
+
+### 2.4 走 CI 发布（可选，等价方案）
+
+仓库自带 `.github/workflows/publish.yml`，用 Trusted Publishing 免令牌：
+
+1. PyPI → Publishing → Add a pending publisher：填仓库 `YeTor53/chinese_char_counter_mcp_yetor`、
+   workflow `publish.yml`、environment `pypi`。
+2. GitHub 仓库 Settings → Environments 建 `pypi`。
+3. 打 tag 触发：
+
+```powershell
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-手动发布（不依赖 CI）也可以：
+### 2.5 以后每次更新版本
 
-```bash
-python -m pip install --upgrade build twine
-python -m build
-python -m twine upload dist/*
-```
+改 `pyproject.toml` 的 `version` 与 `src/chinese_char_counter_mcp/__init__.py` 的 `__version__` →
+`uv build` → `uv publish --token ... dist/*` → 打 tag。客户端与魔搭用的是 `@latest`，无需重建服务。
 
 发布后验证 `uvx` 能拉起服务（这一步就是魔搭部署检测实际做的事）：
 
@@ -127,7 +161,8 @@ uvx chinese-char-counter-mcp@latest
 | --- | --- |
 | 快速创建中断，提示缺少服务介绍 | 仓库根目录 `README.md` 为空或正文取不到内容 |
 | 快速创建中断，提示缺少服务配置 | README 里没有可解析的 `mcpServers` JSON 块，或 JSON 不合法/含注释 |
-| 部署检测不通过：安装失败 | 包没发到 PyPI，或 `args` 里的包名写错 |
+| 部署检测不通过：安装失败 | 包没发到 PyPI，或 `args` 里的包名写错（先 `uvx 包名@latest` 自测） |
+| 连接报 `ExceptionGroup ... TaskGroup` | 多半就是包不在 PyPI 上；去 https://pypi.org/pypi/<包名>/json 确认返回 200 而非 404 |
 | 部署检测不通过：`command` 不支持 | 把 `command` 改成 `uvx`（本项目默认已是 `uvx`） |
 | 连接失败、提示缺少环境变量 | 服务配置里带了 `env`，但平台未填测试值；本项目不需要 `env` |
 | 托管后仍看不到托管标签 | 检测未通过，或创建时托管类型选了"仅本地可用" |
