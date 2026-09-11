@@ -25,6 +25,19 @@ git push -u origin main
 仓库根目录必须保留 `README.md`，且正文里保留那段含 `mcpServers` 的 JSON 配置——
 魔搭快速创建就是从 README 正文解析服务介绍与服务配置的，缺失会直接中断创建。
 
+## 第 1.5 步：发布前本地预验证（强烈建议）
+
+魔搭的部署检测做的事就是"从包管理器装包 → 拉起服务 → 调 list_tools"。本地可以提前把这条链路跑通，
+避免发上 PyPI 后才发现入口有问题：
+
+```bash
+uv build
+uv tool run --from dist/chinese_char_counter_mcp-0.1.0-py3-none-any.whl chinese-char-counter-mcp
+```
+
+最后一条能把服务拉起来（无输出、等待 stdin）就说明入口没问题；再用任意 MCP 客户端连一下确认
+`list_tools` 返回三个工具即可。本项目 2026-09-11 已按此验证通过（uv 0.11.14，装 31 个依赖后成功握手）。
+
 ## 第 2 步：发布到 PyPI
 
 包名：`chinese-char-counter-mcp`（发布前用 `curl -s https://pypi.org/pypi/chinese-char-counter-mcp/json`
@@ -118,3 +131,4 @@ uvx chinese-char-counter-mcp@latest
 | 部署检测不通过：`command` 不支持 | 把 `command` 改成 `uvx`（本项目默认已是 `uvx`） |
 | 连接失败、提示缺少环境变量 | 服务配置里带了 `env`，但平台未填测试值；本项目不需要 `env` |
 | 托管后仍看不到托管标签 | 检测未通过，或创建时托管类型选了"仅本地可用" |
+| `uvx 包名@latest` 解析失败 | 平台 uv 版本过旧不支持 `@latest`；把 README 配置里 `args` 的包名去掉 `@latest` 后再提交（同时改仓库 README 与广场里的服务配置） |
