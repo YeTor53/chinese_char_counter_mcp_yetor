@@ -35,6 +35,12 @@ emoji 也算成字。本服务给出一个确定的答案：只数中文字符�
 - 未装 uv 时，可先 `pip install uv`，或改用已安装方式：`"command": "python", "args": ["-m", "chinese_char_counter_mcp"]`。
 - 本服务不需要任何环境变量，因此配置里没有 `env` 字段。
 
+## 源码仓库
+
+```bash
+git clone https://github.com/YeTor53/chinese_char_counter_mcp_yetor.git
+```
+
 ## 安装
 
 ```bash

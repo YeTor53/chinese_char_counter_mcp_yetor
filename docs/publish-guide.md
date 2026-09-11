@@ -12,12 +12,15 @@ cd chinese-char-counter-mcp
 git init -b main
 git add .
 git commit -m "feat: chinese char counter MCP server (stdio)"
-git remote add origin https://github.com/<你的账号>/chinese-char-counter-mcp.git
+git remote add origin https://github.com/YeTor53/chinese_char_counter_mcp_yetor.git
 git push -u origin main
 ```
 
 推送后在仓库设置里补充 Homepage / Topics（建议：`mcp`、`model-context-protocol`、
-`chinese`、`character-count`），并把 `pyproject.toml` 的 `[project.urls]` 补上仓库地址。
+`chinese`、`character-count`）。
+
+注意：GitHub 仓库名是 `chinese_char_counter_mcp_yetor`，PyPI 包名是 `chinese-char-counter-mcp`，
+两者不要求一致——客户端配置里 `uvx` 后面跟的必须是 **PyPI 包名**。
 
 仓库根目录必须保留 `README.md`，且正文里保留那段含 `mcpServers` 的 JSON 配置——
 魔搭快速创建就是从 README 正文解析服务介绍与服务配置的，缺失会直接中断创建。

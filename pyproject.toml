@@ -33,6 +33,11 @@ classifiers = [
 ]
 dependencies = ["mcp>=1.0.0,<2"]
 
+[project.urls]
+Homepage = "https://github.com/YeTor53/chinese_char_counter_mcp_yetor"
+Repository = "https://github.com/YeTor53/chinese_char_counter_mcp_yetor"
+Issues = "https://github.com/YeTor53/chinese_char_counter_mcp_yetor/issues"
+
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
