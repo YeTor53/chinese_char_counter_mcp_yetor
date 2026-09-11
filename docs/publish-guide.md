@@ -69,6 +69,11 @@ uv publish --token pypi-你的令牌 dist/*
 
 ### 2.3 验证
 
+> 刚发布后 PyPI 的 JSON / simple 索引有 **CDN 缓存**：立刻查可能仍显示旧版本（实测 0.1.1 已发布但
+> `/pypi/<包名>/json` 还返回 0.1.0）。核验时加一个 cache-busting 参数即可：
+> `https://pypi.org/pypi/chinese-char-counter-mcp/json?cb=<时间戳>`，或等 1~2 分钟再看。
+> `uvx 包名@latest` 同理，紧跟着发布立刻拉可能仍是旧版本。
+
 1. 打开 https://pypi.org/project/chinese-char-counter-mcp/ 能看到最新版本号。
 2. 本机拉起（魔搭检测做的事就是这一步）：
 
