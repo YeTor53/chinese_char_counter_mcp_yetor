@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chinese-char-counter-mcp"
+version = "0.1.0"
+description = "MCP server (stdio) that counts Chinese characters in a text, excluding punctuation, whitespace, Latin letters and digits."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Tuo Zihao", email = "yetor53@163.com" }]
+keywords = [
+    "mcp",
+    "model-context-protocol",
+    "chinese",
+    "cjk",
+    "character-count",
+    "word-count",
+    "modelscope",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = ["mcp>=1.0.0,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+chinese-char-counter-mcp = "chinese_char_counter_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chinese_char_counter_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

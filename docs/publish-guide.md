@@ -1,0 +1,117 @@
+# 发布指引：GitHub / PyPI / ModelScope MCP 广场
+
+面向本仓库的一次性操作清单。三步互相依赖：
+**GitHub 仓库 → PyPI 发布 → 魔搭 MCP 广场提交**。
+魔搭的"托管部署"只认 PyPI/npm 上的包（不接受从 GitHub 拉源码或远程 URL），
+所以第 2 步是能否上架托管的前提。
+
+## 第 1 步：GitHub
+
+```bash
+cd chinese-char-counter-mcp
+git init -b main
+git add .
+git commit -m "feat: chinese char counter MCP server (stdio)"
+git remote add origin https://github.com/<你的账号>/chinese-char-counter-mcp.git
+git push -u origin main
+```
+
+推送后在仓库设置里补充 Homepage / Topics（建议：`mcp`、`model-context-protocol`、
+`chinese`、`character-count`），并把 `pyproject.toml` 的 `[project.urls]` 补上仓库地址。
+
+仓库根目录必须保留 `README.md`，且正文里保留那段含 `mcpServers` 的 JSON 配置——
+魔搭快速创建就是从 README 正文解析服务介绍与服务配置的，缺失会直接中断创建。
+
+## 第 2 步：发布到 PyPI
+
+包名：`chinese-char-counter-mcp`（发布前用 `curl -s https://pypi.org/pypi/chinese-char-counter-mcp/json`
+确认没被占用；被占用了就改 `pyproject.toml` 里的 `name`，并同步改 README 配置里的包名）。
+
+本仓库自带 GitHub Actions（`.github/workflows/publish.yml`），推荐用 **Trusted Publishing**
+（免 API Token）：
+
+1. 在 PyPI 账号中 Add a pending publisher，填 GitHub 仓库、workflow 名 `publish.yml`、environment 名 `pypi`。
+2. 在 GitHub 仓库 Settings → Environments 建一个名为 `pypi` 的 environment。
+3. 打 tag 发 Release（或在 Actions 里手动触发 workflow）：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+手动发布（不依赖 CI）也可以：
+
+```bash
+python -m pip install --upgrade build twine
+python -m build
+python -m twine upload dist/*
+```
+
+发布后验证 `uvx` 能拉起服务（这一步就是魔搭部署检测实际做的事）：
+
+```bash
+uvx chinese-char-counter-mcp@latest
+```
+
+能正常启动（无输出、等待 stdin）即说明控制台入口
+（`pyproject.toml` 里的 `[project.scripts] chinese-char-counter-mcp`）正确。
+
+版本升级：改 `pyproject.toml` 的 `version` 与 `__init__.py` 的 `__version__`，重新打 tag 发布。
+
+## 第 3 步：提交到 ModelScope MCP 广场
+
+入口：MCP 广场首页右上角"创建 MCP"，或用"从 GitHub 仓库快速创建"（推荐）。
+
+快速创建只需填：
+
+| 字段 | 本项目的填写内容 |
+| --- | --- |
+| GitHub 地址 | 第 1 步推送的公开仓库地址 |
+| 英文名称 | `chinese-char-counter`（与所有者拼成服务 ID：`<owner>/chinese-char-counter`） |
+| 展示名称 | `中文字数统计` |
+| 所有者 | 当前用户（或所属组织） |
+| 是否公开 | 公开（当前仅支持公开） |
+| 托管类型 | 可托管部署 |
+| 服务图标 | 上传一张方形图标 |
+
+平台会自动解析 README：服务介绍取自正文，服务配置取自那段 `mcpServers` JSON，
+环境变量取自配置里的 `env` 字段（本项目没有 `env`，无需填写）。
+
+也可以走"自定义创建"，手动填同样的字段并选择 STDIO 方式填入同一段服务配置。
+
+## 部署检测自查清单
+
+平台对"可托管部署"的服务会跑自动部署检测，只支持下面这条路径，逐条核对：
+
+- [ ] `command` 字段值为 `uvx` 或 `npx`（本项目用 `uvx`）
+- [ ] `args` 中能取到 PyPI/npm 包名：`chinese-char-counter-mcp@latest`
+- [ ] 包确实已发布到 PyPI，且 `uvx <包名>@latest` 能启动出 STDIO 服务
+- [ ] 服务配置 JSON **无注释**、无多余字段（json 代码块必须是合法 JSON）
+- [ ] README 中只放**一个**含 `mcpServers` 的配置块（多个时平台只取第一个）
+- [ ] 服务不依赖本地绝对路径、不依赖任何必须由用户手填的参数
+- [ ] 无需环境变量/密钥即可完成 `initialize` 与 `list_tools`（本项目天然满足）
+- [ ] `args` 里的包名带 `@latest` 后缀，用户连接时总能拿到最新版
+
+检测流程为：解析服务配置 → 从 `args` 取包名并安装 → 拉起服务 → 调用 `list_tools`。
+`list_tools` 成功即通过（不会逐个调用工具）。任一步失败，即使创建时选了"可托管部署"，
+该服务也不会被托管、页面上不会出现托管标签。
+
+## 上架后验证
+
+1. 详情页"查看"：确认介绍、分类、作者信息由 README 正确解析而来。
+2. 详情页"连接"：本项目无需环境变量，直接点连接即可拿到 SSE 配置。
+3. 详情页"工具测试"：依次调用 `count_chinese_characters`（`text="你好，World 2026！"`，
+   期望 `chinese_count=2`）、`extract_chinese_text`、`count_chinese_characters_batch`。
+4. 若工具测试报错，优先回到"部署检测自查清单"逐项排查，其次看 PyPI 上最新版本是否
+   包含本次代码（`@latest` 会拉最新版本，刚发布的版本可能尚未同步到镜像）。
+
+## 常见问题
+
+| 现象 | 原因与处理 |
+| --- | --- |
+| 快速创建中断，提示缺少服务介绍 | 仓库根目录 `README.md` 为空或正文取不到内容 |
+| 快速创建中断，提示缺少服务配置 | README 里没有可解析的 `mcpServers` JSON 块，或 JSON 不合法/含注释 |
+| 部署检测不通过：安装失败 | 包没发到 PyPI，或 `args` 里的包名写错 |
+| 部署检测不通过：`command` 不支持 | 把 `command` 改成 `uvx`（本项目默认已是 `uvx`） |
+| 连接失败、提示缺少环境变量 | 服务配置里带了 `env`，但平台未填测试值；本项目不需要 `env` |
+| 托管后仍看不到托管标签 | 检测未通过，或创建时托管类型选了"仅本地可用" |
