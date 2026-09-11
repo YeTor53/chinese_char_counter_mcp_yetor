@@ -35,3 +35,27 @@ jobs:
           path: dist/
       - name: Publish to PyPI (Trusted Publishing)
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  # npm 侧发布：走 Trusted Publishing（OIDC），不需要 2FA，也不需要长期令牌。
+  # 前置条件：包已存在于 npm，且在包设置页配好 Trusted Publisher（见 docs/publish-guide.md 2.6.3）。
+  publish-npm:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC：npm trusted publishing 必需
+      contents: read
+    defaults:
+      run:
+        working-directory: npm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: Ensure npm CLI supports trusted publishing
+        run: npm install -g npm@latest >/dev/null && npm --version
+      - name: Unit + protocol tests
+        run: npm test
+      - name: Publish to npm (Trusted Publishing / OIDC)
+        run: npm publish

@@ -1,4 +1,4 @@
-# 发布指引：GitHub / PyPI / ModelScope MCP 广场
+# 发布指引：GitHub / PyPI / npm / ModelScope MCP 广场
 
 面向本仓库的一次性操作清单。三步互相依赖：
 **GitHub 仓库 → PyPI 发布 → 魔搭 MCP 广场提交**。
@@ -119,32 +119,71 @@ uvx chinese-char-counter-mcp@latest
 魔搭部署检测支持 `command` 为 `npx` 或 `uvx`，但**平台侧实际可用性以 npx 最稳**（本项目 README 的
 配置块用的是 `npx`，平台只取第一个配置块，所以 npx 是主路径）。npx 路线要求包发布到 npm。
 
-先决条件：npm 账号（https://www.npmjs.com/signup ，需邮箱验证）；建议同时开启 2FA。
+先决条件：npm 账号（https://www.npmjs.com/signup ，需邮箱验证）。
 
 > 本机 `npm config get registry` 指向的是 **registry.npmmirror.com（只读镜像，不能发布）**，
-> 所以发布命令必须显式指定官方 registry。
+> 仓库里的 `npm/.npmrc` 已把该目录固定为官方 registry，在 `npm/` 下执行命令即生效；
+> 若在别处执行，命令必须显式带 `--registry https://registry.npmjs.org`。
+
+### 2.6.1 现行 2FA 规则（决定了发布方式）
+
+npm 把"发布"锁在交互式 2FA 上，三条约束决定了唯一可行路径：
+
+1. **新绑定 TOTP 已停用**：`npm profile enable-2fa auth-and-writes` 会报
+   `404 ... Adding a new TOTP 2FA is no longer supported`。现在只能绑**安全密钥（WebAuthn）**：
+   `https://www.npmjs.com/settings/<用户名>/tfa`
+2. **bypass-2FA 的 granular token 不可依赖**：创建令牌本身现在就需要交互式 2FA，
+   且直接发布权限 2027 年 1 月起收回，官方建议迁到 trusted publishing。
+3. **Trusted Publishing（OIDC）不需要 2FA 与令牌**，但配置入口在**包设置页**，
+   官方对 staged publishing 亦明说"不能用于全新包"→ **首个版本只能人工交互发布**。
+
+结论：**先给账号绑一把安全密钥 → 人工发首个版本 → 之后所有版本交给 CI 的 OIDC。**
+
+### 2.6.2 首次发布（人工，需安全密钥 2FA）
 
 ```powershell
+# 1) 浏览器：https://www.npmjs.com/settings/<用户名>/tfa → 添加 Security key
+#    可用 Windows Hello（需先在"设置 → 账户 → 登录选项"设好 PIN）、硬件钥匙或 passkey。
+#    页面给出的 recovery codes 必须存好，它是账号唯一的找回途径。
+#    注意：如果是在远程桌面会话里，平台认证器调不起来，改用手机 passkey 或硬件钥匙。
+
 cd G:\MCP\chinese-char-counter-mcp\npm
-npm test                                  # 15 项：计数规则 + STDIO 协议全链路
-npm pack                                  # 可选：先看打进包里的文件清单
-
-# 登录（交互）或用令牌（推荐，适合无人值守）
-npm login --registry https://registry.npmjs.org
-npm publish --registry https://registry.npmjs.org
-
-# 令牌方式（在 npmjs.com → Access Tokens 建 granular token，勾选 Bypass 2FA）
-npm publish --registry https://registry.npmjs.org --//registry.npmjs.org/:_authToken=npm_你的令牌
+npm test                # 15 项：计数规则 + STDIO 协议全链路
+npm pack                # 可选：先看打进包里的文件清单
+npm publish             # 会打印 Authenticate your account at: <URL> 并打开浏览器
 ```
 
-发布后验证（这一步就是魔搭检测做的事）：
+`npm publish` 不会要 6 位口令：npm CLI 遇到 `EOTP` 且响应带 `authUrl`/`doneUrl` 时走浏览器挑战
+分支，在浏览器里用安全密钥确认后命令自动完成。
+
+### 2.6.3 后续版本：交给 CI（Trusted Publishing，免 2FA 免令牌）
+
+首个版本发布后包即存在，可配置 OIDC 自动发布：
+
+1. 打开 `https://www.npmjs.com/package/chinese-char-counter-mcp/settings` → **Trusted Publisher** →
+   选 `GitHub Actions`，填：
+
+   | 字段 | 值 |
+   | --- | --- |
+   | Organization or user | `YeTor53` |
+   | Repository | `chinese_char_counter_mcp_yetor` |
+   | Workflow filename | `publish.yml`（只填文件名，须带 `.yml`） |
+   | Environment name | 留空 |
+   | Allowed actions | **勾上允许直接 `npm publish`**（默认只允许 `npm stage publish`，不勾 CI 会失败） |
+
+2. 推 `v*` tag 即触发 `.github/workflows/publish.yml` 里的 `publish-npm` job
+   （Node 24 + `permissions: id-token: write`），npm CLI 自动换短期令牌并生成 provenance。
+3. 版本升级：改 `npm/package.json` 的 `version`（与 Python 版版本号各自独立，不必同步）→ 提交 → 打 tag。
+
+> `publish-npm` 与 PyPI 的 `publish` 在同一个 workflow 里，同一个 tag 会同时尝试两者；
+> npm 版本号没升而 PyPI 升了，npm job 会因版本已存在而失败，属预期，不影响 PyPI 发布。
+
+### 2.6.4 验证（这一步就是魔搭检测做的事）
 
 ```powershell
 npm view chinese-char-counter-mcp version --registry https://registry.npmjs.org
 npx -y chinese-char-counter-mcp@latest     # 无输出、停在等待 stdin 即正确
 ```
-
-版本升级：改 `npm/package.json` 的 `version`（与 Python 版的版本号各自独立，不必同步），重跑上面两条发布命令。
 
 ## 第 3 步：提交到 ModelScope MCP 广场
 
@@ -203,7 +242,10 @@ npx -y chinese-char-counter-mcp@latest     # 无输出、停在等待 stdin 即�
 | 连接报 `ExceptionGroup ... TaskGroup` | 多半就是包不在 PyPI 上；去 https://pypi.org/pypi/<包名>/json 确认返回 200 而非 404 |
 | 部署检测不通过：`command` 不支持，或提示 uvx 不可用 | 改用 npx：确认 npm 包已发布，README 第一个配置块为
 `{"command": "npx", "args": ["-y", "chinese-char-counter-mcp@latest"]}` |
-| npm 发布报 403 / 需要 OTP | 账号开了 2FA：用 granular token（勾 Bypass 2FA）发布，或按提示输入一次性口令 |
+| npm 发布报 403 Forbidden | 账号没有可用的 2FA 方式：npm 已停用新绑 TOTP，需绑安全密钥后由浏览器完成挑战（见 2.6.2） |
+| 提示 Adding new TOTP 2FA is no longer supported | TOTP 通道已关闭，改为在账号设置页添加 Security key |
+| 发布卡在 Authenticate your account at: <URL> | 浏览器未登录 npm 或安全密钥确认未完成；完成浏览器侧确认后 CLI 会自动继续 |
+| CI 发布 npm 报 401/404 且提示无权限 | Trusted Publisher 没配或 Allowed actions 未勾"允许直接 npm publish"，或包名/仓库名/工作流文件名对不上（见 2.6.3） |
 | `npm publish` 报不能发到 mirror | 本机 registry 是 npmmirror，命令里必须显式带 `--registry https://registry.npmjs.org` |
 | 连接失败、提示缺少环境变量 | 服务配置里带了 `env`，但平台未填测试值；本项目不需要 `env` |
 | 托管后仍看不到托管标签 | 检测未通过，或创建时托管类型选了"仅本地可用" |
