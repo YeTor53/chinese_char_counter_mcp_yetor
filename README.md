@@ -15,15 +15,15 @@ emoji 也算成字。本服务给出一个确定的答案：只数中文字符�
 
 ## 客户端配置
 
-把下面这段配置加入任意支持 MCP 的客户端（Claude Desktop、Cursor、Cherry Studio、
-通义灵码、ModelScope MCP 实验场等）：
+把下面这段配置加入任意支持 MCP 的客户端（Claude Desktop、Cursor、Cherry Studio、通义灵码、
+ModelScope MCP 实验场等）：
 
 ```json
 {
   "mcpServers": {
     "chinese-char-counter": {
-      "command": "uvx",
-      "args": ["chinese-char-counter-mcp@latest"]
+      "command": "npx",
+      "args": ["-y", "chinese-char-counter-mcp@latest"]
     }
   }
 }
@@ -31,15 +31,11 @@ emoji 也算成字。本服务给出一个确定的答案：只数中文字符�
 
 说明：
 
-- `uvx`（来自 [uv](https://docs.astral.sh/uv/)）会自动从 PyPI 下载并运行本包，无需手动安装。
-- 未装 uv 时，可先 `pip install uv`，或改用已安装方式：`"command": "python", "args": ["-m", "chinese_char_counter_mcp"]`。
+- 该配置用 **npm 上的零依赖 Node 实现**（`npx` 会自动下载并运行，无需手动安装）。
 - 本服务不需要任何环境变量，因此配置里没有 `env` 字段。
-
-## 源码仓库
-
-```bash
-git clone https://github.com/YeTor53/chinese_char_counter_mcp_yetor.git
-```
+- 想用 Python 实现：`pip install chinese-char-counter-mcp` 安装后，把配置里的 `command` 改成 `uvx`、
+  `args` 改成该包名（即 `uvx chinese-char-counter-mcp@latest`）即可；两种实现的工具名、参数、返回结构完全一致。
+- `command` 用 `npx` 或 `uvx` 是 ModelScope（魔搭）MCP 广场托管部署检测的硬要求，其他写法不会被托管。
 
 ## 安装
 
@@ -158,6 +154,11 @@ chinese-char-counter-mcp/
 │   ├── counter.py     # 计数核心：纯函数，无副作用，可单独复用
 │   ├── server.py      # MCP 工具定义与显式注册、控制台入口
 │   └── __main__.py    # python -m 入口
+├── npm/               # 零依赖 Node 实现（npm 包，供 npx 使用）
+│   ├── bin/server.js  # MCP 服务入口（STDIO）
+│   ├── lib/counter.js # 计数核心（与 Python 版逐字段对齐）
+│   ├── lib/protocol.js# 极简 MCP JSON-RPC 服务端
+│   └── test/          # node --test：计数规则 + 协议链路
 ├── tests/             # pytest 单元测试（计数规则 + 工具信封契约）
 ├── scripts/
 │   └── e2e_stdio_client.py   # STDIO 端到端验证：initialize -> list_tools -> call_tool
@@ -168,9 +169,13 @@ chinese-char-counter-mcp/
 ## 开发
 
 ```bash
+# Python 实现
 pip install -e ".[dev]"
 pytest -q                          # 单元测试
 python scripts/e2e_stdio_client.py # STDIO 端到端验证（需已安装 mcp）
+
+# Node 实现
+cd npm && npm test                 # node --test：计数规则 + STDIO 协议全链路
 ```
 
 设计约定：

@@ -40,7 +40,8 @@ uv tool run --from dist/*.whl chinese-char-counter-mcp
 
 ## 第 2 步：发布到 PyPI（唯一不可跳过的步骤）
 
-包名：`chinese-char-counter-mcp`。魔搭的部署检测会直接 `uvx chinese-char-counter-mcp@latest`，
+包名：`chinese-char-counter-mcp`（npm 与 PyPI 同名）。魔搭的部署检测会按 README 第一个配置块拉起服务
+（本项目走 `npx -y chinese-char-counter-mcp@latest`；若改用 uvx 则是 `uvx chinese-char-counter-mcp@latest`），
 **包不在 PyPI 上，连接与检测必定失败**（报 anyio TaskGroup 的 ExceptionGroup）。
 
 ### 2.1 账号与令牌
@@ -113,6 +114,38 @@ uvx chinese-char-counter-mcp@latest
 
 版本升级：改 `pyproject.toml` 的 `version` 与 `__init__.py` 的 `__version__`，重新打 tag 发布。
 
+## 第 2.6 步：发布 npm 包（README 配置走 npx 时必需）
+
+魔搭部署检测支持 `command` 为 `npx` 或 `uvx`，但**平台侧实际可用性以 npx 最稳**（本项目 README 的
+配置块用的是 `npx`，平台只取第一个配置块，所以 npx 是主路径）。npx 路线要求包发布到 npm。
+
+先决条件：npm 账号（https://www.npmjs.com/signup ，需邮箱验证）；建议同时开启 2FA。
+
+> 本机 `npm config get registry` 指向的是 **registry.npmmirror.com（只读镜像，不能发布）**，
+> 所以发布命令必须显式指定官方 registry。
+
+```powershell
+cd G:\MCP\chinese-char-counter-mcp\npm
+npm test                                  # 15 项：计数规则 + STDIO 协议全链路
+npm pack                                  # 可选：先看打进包里的文件清单
+
+# 登录（交互）或用令牌（推荐，适合无人值守）
+npm login --registry https://registry.npmjs.org
+npm publish --registry https://registry.npmjs.org
+
+# 令牌方式（在 npmjs.com → Access Tokens 建 granular token，勾选 Bypass 2FA）
+npm publish --registry https://registry.npmjs.org --//registry.npmjs.org/:_authToken=npm_你的令牌
+```
+
+发布后验证（这一步就是魔搭检测做的事）：
+
+```powershell
+npm view chinese-char-counter-mcp version --registry https://registry.npmjs.org
+npx -y chinese-char-counter-mcp@latest     # 无输出、停在等待 stdin 即正确
+```
+
+版本升级：改 `npm/package.json` 的 `version`（与 Python 版的版本号各自独立，不必同步），重跑上面两条发布命令。
+
 ## 第 3 步：提交到 ModelScope MCP 广场
 
 入口：MCP 广场首页右上角"创建 MCP"，或用"从 GitHub 仓库快速创建"（推荐）。
@@ -138,9 +171,9 @@ uvx chinese-char-counter-mcp@latest
 
 平台对"可托管部署"的服务会跑自动部署检测，只支持下面这条路径，逐条核对：
 
-- [ ] `command` 字段值为 `uvx` 或 `npx`（本项目用 `uvx`）
-- [ ] `args` 中能取到 PyPI/npm 包名：`chinese-char-counter-mcp@latest`
-- [ ] 包确实已发布到 PyPI，且 `uvx <包名>@latest` 能启动出 STDIO 服务
+- [ ] `command` 字段值为 `npx` 或 `uvx`（本项目 README 第一个配置块用 **npx**；平台只取第一个配置块）
+- [ ] `args` 中能取到 npm/PyPI 包名：`-y chinese-char-counter-mcp@latest`（npx 路线；`-y` 表示免交互安装）
+- [ ] 包**确实已发布**：npx 路线看 npm（`npm view <包名> version`），uvx 路线看 PyPI；两条都自测过 `npx -y <包名>@latest` / `uvx <包名>@latest` 能启动出 STDIO 服务
 - [ ] 服务配置 JSON **无注释**、无多余字段（json 代码块必须是合法 JSON）
 - [ ] README 中只放**一个**含 `mcpServers` 的配置块（多个时平台只取第一个）
 - [ ] 服务不依赖本地绝对路径、不依赖任何必须由用户手填的参数
@@ -168,7 +201,10 @@ uvx chinese-char-counter-mcp@latest
 | 快速创建中断，提示缺少服务配置 | README 里没有可解析的 `mcpServers` JSON 块，或 JSON 不合法/含注释 |
 | 部署检测不通过：安装失败 | 包没发到 PyPI，或 `args` 里的包名写错（先 `uvx 包名@latest` 自测） |
 | 连接报 `ExceptionGroup ... TaskGroup` | 多半就是包不在 PyPI 上；去 https://pypi.org/pypi/<包名>/json 确认返回 200 而非 404 |
-| 部署检测不通过：`command` 不支持 | 把 `command` 改成 `uvx`（本项目默认已是 `uvx`） |
+| 部署检测不通过：`command` 不支持，或提示 uvx 不可用 | 改用 npx：确认 npm 包已发布，README 第一个配置块为
+`{"command": "npx", "args": ["-y", "chinese-char-counter-mcp@latest"]}` |
+| npm 发布报 403 / 需要 OTP | 账号开了 2FA：用 granular token（勾 Bypass 2FA）发布，或按提示输入一次性口令 |
+| `npm publish` 报不能发到 mirror | 本机 registry 是 npmmirror，命令里必须显式带 `--registry https://registry.npmjs.org` |
 | 连接失败、提示缺少环境变量 | 服务配置里带了 `env`，但平台未填测试值；本项目不需要 `env` |
 | 托管后仍看不到托管标签 | 检测未通过，或创建时托管类型选了"仅本地可用" |
 | `uvx 包名@latest` 解析失败 | 平台 uv 版本过旧不支持 `@latest`；把 README 配置里 `args` 的包名去掉 `@latest` 后再提交（同时改仓库 README 与广场里的服务配置） |
