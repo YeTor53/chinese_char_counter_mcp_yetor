@@ -32,7 +32,7 @@ git push -u origin main
 
 ```bash
 uv build
-uv tool run --from dist/chinese_char_counter_mcp-0.1.0-py3-none-any.whl chinese-char-counter-mcp
+uv tool run --from dist/*.whl chinese-char-counter-mcp
 ```
 
 最后一条能把服务拉起来（无输出、等待 stdin）就说明入口没问题；再用任意 MCP 客户端连一下确认
@@ -69,7 +69,7 @@ uv publish --token pypi-你的令牌 dist/*
 
 ### 2.3 验证
 
-1. 打开 https://pypi.org/project/chinese-char-counter-mcp/ 能看到 0.1.0。
+1. 打开 https://pypi.org/project/chinese-char-counter-mcp/ 能看到最新版本号。
 2. 本机拉起（魔搭检测做的事就是这一步）：
 
 ```powershell
@@ -88,8 +88,8 @@ uvx chinese-char-counter-mcp@latest
 3. 打 tag 触发：
 
 ```powershell
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 ### 2.5 以后每次更新版本

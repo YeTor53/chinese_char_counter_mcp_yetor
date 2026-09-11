@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "chinese-char-counter-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server (stdio) that counts Chinese characters in a text, excluding punctuation, whitespace, Latin letters and digits."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -22,9 +22,11 @@ except ImportError:  # pragma: no cover
 from mcp.server.fastmcp import FastMCP
 from mcp.types import ToolAnnotations
 
+from . import __version__
 from .counter import count_batch, count_text, extract_chinese
 
 SERVER_NAME = "chinese-char-counter"
+WEBSITE_URL = "https://github.com/YeTor53/chinese_char_counter_mcp_yetor"
 SERVER_INSTRUCTIONS = (
     "统计一段文本里的中文字数（不含标点、空格、英文字母、数字等）。"
     "count_chinese_characters 返回中文字数与分项明细；"
@@ -39,7 +41,15 @@ READ_ONLY_TOOL = ToolAnnotations(
     openWorldHint=False,
 )
 
-mcp = FastMCP(name=SERVER_NAME, instructions=SERVER_INSTRUCTIONS)
+mcp = FastMCP(name=SERVER_NAME, instructions=SERVER_INSTRUCTIONS, website_url=WEBSITE_URL)
+
+# FastMCP 1.x 未暴露 version 参数（内部建 lowlevel Server 时没传），
+# 会让客户端看到的 serverInfo.version 退化成 mcp SDK 的版本号。
+# 这里补写 lowlevel server 的属性；SDK 结构变化导致失败也不影响服务功能。
+try:  # pragma: no cover - 依赖 SDK 内部结构
+    mcp._mcp_server.version = __version__
+except Exception:  # noqa: BLE001
+    pass
 
 
 class CharacterBreakdown(TypedDict):
